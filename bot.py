@@ -23,7 +23,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-  return "Oman Exchange Bot is Active!"
+  return "Oman Exchange Bot is Active and Running!"
 
 
 def send_telegram_msg(text):
@@ -49,7 +49,6 @@ def send_welcome_photo(chat_id, user_name):
       " استفاده کنید:"
   )
 
-  # دکمه‌های شیشه‌ای (Inline Keyboard) با تمام لینک‌ها
   inline_keyboard = {
       "inline_keyboard": [
           [
@@ -99,4 +98,104 @@ def send_welcome_photo(chat_id, user_name):
   try:
     requests.post(url, json=payload, timeout=10)
   except Exception as e:
-    print(f
+    print(f"Error sending welcome photo: {e}")
+
+
+def fetch_target_currencies():
+  url = "https://arzbin.com/"
+  headers = {
+      "User-Agent": (
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+          " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      )
+  }
+  target_currencies = ["دلار", "درهم", "یورو", "ریال عمان", "لیر"]
+  prices_data = {}
+
+  try:
+    response = requests.get(url, headers=headers, timeout=10)
+    if response.status_code == 200:
+      soup = BeautifulSoup(response.text, "html.parser")
+      for row in soup.find_all("tr"):
+        row_text = row.get_text(separator=" ", strip=True)
+        for key in target_currencies:
+          if key in row_text and key not in prices_data:
+            clean_text = " ".join(row_text.split())
+            if len(clean_text) < 100:
+              prices_data[key] = clean_text
+  except Exception as e:
+    print(f"Error fetching prices: {e}")
+
+  return prices_data
+
+
+def price_broadcaster():
+  """وظیفه ارسال نرخ ارزها هر ۳۰ دقیقه"""
+  print("=== STARTING PRICE BROADCASTER ===")
+  time.sleep(10)
+
+  while True:
+    try:
+      prices = fetch_target_currencies()
+      msg = "💱 *نرخ لحظه‌ای ارزها و حوالجات - صرافی ایرانیان عمان*\n\n"
+
+      if prices:
+        for curr, val in prices.items():
+          msg += f"🔹 *{curr}*: `{val}`\n"
+      else:
+        msg += "🔹 دلار آمریکا: در حال به‌روزرسانی\n"
+        msg += "🔹 درهم امارات: در حال به‌روزرسانی\n"
+        msg += "🔹 ریال عمان: در حال به‌روزرسانی\n"
+
+      msg += "\n━━━━━━━━━━━━━━━━━━━━━\n"
+      msg += "📞 **ارتباط با ادمین‌ها:**\n"
+      msg += "👤 `@Oman_Exchangadmin1` | `@OmanTejarat_Admin`\n\n"
+      msg += "🌐 **گروه‌ها و کانال‌های ما:**\n"
+      msg += "🔹 گروه ۱: t.me/OmanIranians\n"
+      msg += "🔹 گروه ۲: t.me/Oman_ExchangeMuscat_Havaleh\n"
+      msg += (
+          "💬 گروه واتساپ:"
+          " https://chat.whatsapp.com/HOCgDM5KNaWIhDrGqO6Cif?s=cl&p=a&mlu=4&ilr=4\n"
+      )
+      msg += "📢 کانال تلگرام: `@iranianoman`\n"
+      msg += "━━━━━━━━━━━━━━━━━━━━━"
+
+      send_telegram_msg(msg)
+    except Exception as e:
+      print(f"Error in price broadcaster: {e}")
+
+    time.sleep(1800)  # ۳۰ دقیقه
+
+
+def telegram_updates_listener():
+  """وظیفه شنود ورود اعضای جدید"""
+  print("=== STARTING WELCOME LISTENER ===")
+  last_update_id = 0
+
+  while True:
+    try:
+      url = f"https://api.telegram.org/bot{TOKEN}/getUpdates?offset={last_update_id + 1}&timeout=20"
+      res = requests.get(url, timeout=25).json()
+
+      if res.get("ok"):
+        for update in res.get("result", []):
+          last_update_id = update["update_id"]
+          message = update.get("message") or update.get("channel_post")
+          if message and "new_chat_members" in message:
+            chat_id = message["chat"]["id"]
+            for new_member in message["new_chat_members"]:
+              first_name = new_member.get("first_name", "عزیز")
+              send_welcome_photo(chat_id, first_name)
+    except Exception as e:
+      print(f"Error in updates listener: {e}")
+
+    time.sleep(3)
+
+
+# اجرای تردها قبل از بالا آمدن سرور Flask
+if __name__ == "__main__":
+  threading.Thread(target=price_broadcaster, daemon=True).start()
+  threading.Thread(target=telegram_updates_listener, daemon=True).start()
+
+  port = int(os.environ.get("PORT", 10000))
+  app.run(host="0.0.0.0", port=port)
