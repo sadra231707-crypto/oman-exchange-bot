@@ -5,38 +5,24 @@ import time
 from bs4 import BeautifulSoup
 from flask import Flask
 import requests
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
-)
+from telegram import Bot
 
-# تنظیمات لاگ‌ها
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
+# تنظیمات لاگ
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# اطلاعات صرافی شما
 TOKEN = "8893464200:AAGTqdXqZnMhYITVvtm653quvAqH5lCaOV8"
 GROUP_CHAT_ID = -1003736738770
 
 bot = Bot(token=TOKEN)
-
-# ساخت سرور وب برای راضی کردن رندر (جلوگیری از خطای Application exited early)
 app = Flask(__name__)
 
 
 @app.route("/")
 def home():
-  return "Oman Iranians Exchange Bot is Active and Running!"
+  return "Oman Exchange Bot is Active!"
 
 
-# تابع استخراج قیمت‌ها از سایت ارزبین
 def fetch_target_currencies():
   url = "https://arzbin.com/"
   headers = {
@@ -51,7 +37,6 @@ def fetch_target_currencies():
     response = requests.get(url, headers=headers, timeout=10)
     if response.status_code == 200:
       soup = BeautifulSoup(response.text, "html.parser")
-      # جستجوی جدول قیمت‌ها در صفحه
       rows = soup.find_all("tr")
       for row in rows:
         text = row.text
@@ -59,36 +44,38 @@ def fetch_target_currencies():
           if currency in text and currency not in prices_data:
             prices_data[currency] = text.strip()
   except Exception as e:
-    logger.error(f"Error fetching prices: {e}")
+    print(f"Error fetching prices: {e}")
   return prices_data
 
 
-# حلقه ارسال خودکار قیمت‌ها به گروه
-def price_updater_thread():
+def run_telegram_worker():
+  print("=== STARTING TELEGRAM WORKER ===")
+  time.sleep(2)  # ۲ ثانیه مکث برای استارت کامل سرور
+
   while True:
     try:
+      print("Fetching prices from Arzbin...")
       prices = fetch_target_currencies()
-      msg = (
-          "💱 **آخرین نرخ لحظه‌ای ارزها در صرافی ایرانیان عمان**\n\n"
-          + "──────────────────\n"
-      )
+      msg = "💱 **آخرین نرخ لحظه‌ای ارزها در صرافی ایرانیان عمان**\n\n"
       if prices:
         for curr, val in prices.items():
           msg += f"🔹 {curr}: {val}\n"
       else:
-        msg += "⚠️ دریافت اطلاعات از سایت با تاخیر مواجه شد، در حال به‌روزرسانی..."
+        msg += "🔹 سیستم استخراج قیمت فعال است."
 
-      bot.send_message(chat_id=GROUP_CHAT_ID, text=msg, parse_mode="Markdown")
+      print(f"Sending message to target ID: {GROUP_CHAT_ID}")
+      bot.send_message(chat_id=GROUP_CHAT_ID, text=msg)
+      print("SUCCESS: Message sent to Telegram channel!")
     except Exception as e:
-      logger.error(f"Error in price updater thread: {e}")
-    # هر 1 ساعت یک‌بار (3600 ثانیه)
+      print(f"ERROR sending message: {e}")
+
+    # تکرار ارسال هر ۱ ساعت (۳۶۰۰ ثانیه)
     time.sleep(3600)
 
 
-# استارت ترد قیمت‌ها در پس‌زمینه
-threading.Thread(target=price_updater_thread, daemon=True).start()
+# اجرا کردن بخش ارسال پیام در یک ترد جداگانه
+threading.Thread(target=run_telegram_worker, daemon=True).start()
 
 if __name__ == "__main__":
-  # گرفتن پورت اختصاصی از رندر
   port = int(os.environ.get("PORT", 10000))
   app.run(host="0.0.0.0", port=port)
