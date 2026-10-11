@@ -99,46 +99,57 @@ def send_welcome_photo(chat_id, user_name):
     print(f"Error sending welcome photo: {e}")
 
 
-def fetch_target_currencies():
-  url = "https://arzbin.com/"
+def fetch_rates_from_telegram_web():
+  """استخراج نرخ‌ها از نسخه وب کانال‌های عمومی تلگرام"""
+  # از چند کانال عمومی معتبر به صورت جایگزین استفاده می‌کنیم
+  channels = ["tg_arz", "nerkh_arz"]
+  prices_data = {}
+
   headers = {
       "User-Agent": (
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
           " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       )
   }
-  # قراردادن تمام ارزهای مورد نیاز
-  target_currencies = [
-      "دلار آمریکا",
-      "دلار",
-      "درهم امارات",
-      "درهم",
-      "یورو",
-      "ریال عمان",
-      "لیر ترکیه",
-      "لیر",
-  ]
-  prices_data = {}
 
-  try:
-    response = requests.get(url, headers=headers, timeout=10)
-    if response.status_code == 200:
-      soup = BeautifulSoup(response.text, "html.parser")
-      for row in soup.find_all("tr"):
-        cols = [col.get_text(strip=True) for col in row.find_all(["th", "td"])]
-        if cols:
-          row_str = " ".join(cols)
-          for key in target_currencies:
-            # کلمه‌های کلیدی اصلی را نگاشت می‌کنیم
-            clean_key = (
-                key.replace(" آمریکا", "")
-                .replace(" امارات", "")
-                .replace(" ترکیه", "")
+  for channel in channels:
+    url = f"https://t.me/s/{channel}"
+    try:
+      response = requests.get(url, headers=headers, timeout=10)
+      if response.status_code == 200:
+        soup = BeautifulSoup(response.text, "html.parser")
+        messages = soup.find_all("div", class_="tgme_widget_message_text")
+
+        # آخرین پیام‌ها را بررسی می‌کنیم تا نرخ‌ها پیدا شوند
+        for msg in reversed(messages):
+          text = msg.get_text()
+
+          # جستجوی ارزها در متن پیام‌های کانال
+          if "دلار" in text and "دلار" not in prices_data:
+            prices_data["دلار"] = (
+                text[:100] + "..." if len(text) > 100 else text
             )
-            if key in row_str and clean_key not in prices_data:
-              prices_data[clean_key] = row_str
-  except Exception as e:
-    print(f"Error fetching prices: {e}")
+          if "درهم" in text and "درهم" not in prices_data:
+            prices_data["درهم"] = (
+                text[:100] + "..." if len(text) > 100 else text
+            )
+          if "یورو" in text and "یورو" not in prices_data:
+            prices_data["یورو"] = (
+                text[:100] + "..." if len(text) > 100 else text
+            )
+          if "ریال عمان" in text and "ریال عمان" not in prices_data:
+            prices_data["ریال عمان"] = (
+                text[:100] + "..." if len(text) > 100 else text
+            )
+          if "لیر" in text and "لیر" not in prices_data:
+            prices_data["لیر"] = (
+                text[:100] + "..." if len(text) > 100 else text
+            )
+
+        if len(prices_data) >= 2:
+          break  # اگر داده‌ای پیدا شد از حلقه خارج می‌شویم
+    except Exception as e:
+      print(f"Error fetching from {channel}: {e}")
 
   return prices_data
 
@@ -150,18 +161,19 @@ def price_broadcaster():
 
   while True:
     try:
-      prices = fetch_target_currencies()
-      msg = "💱 نرخ لحظه‌ای ارزها و حوالجات - صرافی ایرانیان عمان\n\n"
+      prices = fetch_rates_from_telegram_web()
+      msg = "💱 نرخ لحظه‌ای ارزها و حوالجات (به تومان) - صرافی ایرانیان عمان\n\n"
 
-      if prices:
-        for curr, val in prices.items():
-          msg += f"🔹 {curr}: {val}\n"
-      else:
-        msg += "🔹 دلار: در حال به‌روزرسانی\n"
-        msg += "🔹 درهم: در حال به‌روزرسانی\n"
-        msg += "🔹 یورو: در حال به‌روزرسانی\n"
-        msg += "🔹 ریال عمان: در حال به‌روزرسانی\n"
-        msg += "🔹 لیر: در حال به‌روزرسانی\n"
+      target_keys = ["دلار", "درهم", "یورو", "ریال عمان", "لیر"]
+      found_any = False
+
+      for key in target_keys:
+        if key in prices:
+          msg += f"🔹 {key}: {prices[key]}\n"
+          found_any = True
+        else:
+          # مقدار پیش‌فرض در صورت عدم دسترسی لحظه‌ای به کانال
+          msg += f"🔹 {key}: استعلام از ادمین\n"
 
       msg += "\n━━━━━━━━━━━━━━━━━━━━━\n"
       msg += "📞 ارتباط با ادمین‌ها:\n"
