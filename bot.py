@@ -39,7 +39,7 @@ def fetch_target_currencies():
   url = "https://arzbin.com/"
   headers = {
       "User-Agent": (
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) BeautifulSoup/537.36"
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
       )
   }
   target_currencies = ["دلار", "یورو", "لیر", "ریال عمان", "درهم"]
@@ -48,12 +48,12 @@ def fetch_target_currencies():
     response = requests.get(url, headers=headers, timeout=10)
     if response.status_code == 200:
       soup = BeautifulSoup(response.text, "html.parser")
-      rows = soup.find_all("tr")
-      for row in rows:
-        text = row.text
+      # جستجوی عمومی در تمام تگ‌ها برای پیدا کردن نام ارز و متن اطراف آن
+      for text_item in soup.stripped_strings:
         for currency in target_currencies:
-          if currency in text and currency not in prices_data:
-            prices_data[currency] = text.strip()
+          if currency in text_item and currency not in prices_data:
+            # سعی می‌کنیم بلوک والد یا متن خط را پیدا کنیم
+            prices_data[currency] = text_item
   except Exception as e:
     print(f"Error fetching prices: {e}")
   return prices_data
@@ -67,12 +67,12 @@ def run_telegram_worker():
     try:
       print("Fetching prices from Arzbin...")
       prices = fetch_target_currencies()
-      msg = "💱 **آخرین نرخ لحظه‌ای ارزها در صرافی ایرانیان عمان**\n\n"
+      msg = "💱 *آخرین نرخ لحظه‌ای ارزها در صرافی ایرانیان عمان*\n\n"
       if prices:
         for curr, val in prices.items():
-          msg += f"🔹 {curr}: {val}\n"
+          msg += f"🔹 *{curr}*: {val}\n"
       else:
-        msg += "🔹 سیستم استخراج قیمت فعال است."
+        msg += "🔹 نرخ‌ها در حال به‌روزرسانی هستند."
 
       print("Sending message via Telegram API...")
       send_telegram_msg(msg)
