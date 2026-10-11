@@ -30,6 +30,7 @@ def send_telegram_msg(text):
   payload = {
       "chat_id": GROUP_CHAT_ID,
       "text": text,
+      "parse_mode": "Markdown",
   }
   try:
     res = requests.post(url, json=payload, timeout=10)
@@ -42,7 +43,7 @@ def send_welcome_photo(chat_id, user_name):
   url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
   caption = (
       f"🌸 خوش آمدید {user_name} عزیز!\n\n"
-      "به مجموعه صرافی و حواله ایرانیان عمان خوش آمدید.\n"
+      "به مجموعه صرافی و حواله ایرانیان عمان خوش آمدید.\n\n"
       "جهت ارتباط با ادمین‌ها و عضویت در گروه و کانال‌های ما از دکمه‌های زیر"
       " استفاده کنید:"
   )
@@ -73,7 +74,7 @@ def send_welcome_photo(chat_id, user_name):
               {
                   "text": "💬 گروه واتساپ صرافی",
                   "url": (
-                      "https://chat.whatsapp.com/HOCgDM5KNaWIhDrGqO6Cif?s=cl&p=a&mlu=4&ilr=4"
+                      "https://chat.whatsapp.com/HOCgDM5KNaWIhDrGqO6Cif"
                   ),
               }
           ],
@@ -98,69 +99,35 @@ def send_welcome_photo(chat_id, user_name):
     print(f"Error sending welcome photo: {e}")
 
 
-def get_live_rates():
-  """دریافت نرخ ارزها از طریق API معتبر جهانی و تبدیل به ریال/تومان"""
-  try:
-    # دریافت نرخ‌ها بر پایه دلار
-    response = requests.get(
-        "https://open.er-api.com/v6/latest/USD", timeout=10
-    )
-    data = response.json()
-
-    if data.get("result") == "success":
-      rates = data.get("rates", {})
-      usd_irr = rates.get("IRR", 500000)  # نرخ پیش‌فرض یا آنلاین ریال ایران
-
-      # محاسبه نرخ‌ها بر اساس دلار بازار آزاد یا مرجع API
-      # (از آنجا که IRR در API های جهانی نرخ بانکی است، نرخ آزاد را با ضریب مشخص یا نرخ مستقیم محاسبه میکنیم)
-      aed_rate = rates.get("AED", 3.67)
-      eur_rate = rates.get("EUR", 0.92)
-      omr_rate = rates.get("OMR", 0.385)
-      try_rate = rates.get("TRY", 32.0)
-
-      # محاسبه تقربی بر اساس دلار آزاد بازار
-      # فرض میکنیم نرخ دلار آزاد قابل تنظیم است
-      return {
-          "دلار": "به‌روزرسانی شد (کانال)",
-          "درهم": "نرخ لحظه‌ای فعال",
-          "یورو": "نرخ لحظه‌ای فعال",
-          "ریال عمان": "نرخ لحظه‌ای فعال",
-          "لیر": "نرخ لحظه‌ای فعال",
-      }
-  except Exception as e:
-    print(f"Error fetching API rates: {e}")
-
-  return None
-
-
 def price_broadcaster():
-  """وظیفه ارسال نرخ ارزها هر ۳۰ دقیقه"""
+  """وظیفه ارسال نرخ ارزها هر ۳۰ دقیقه با فاصله خطوط بیشتر"""
   print("=== STARTING PRICE BROADCASTER ===")
   time.sleep(10)
 
   while True:
     try:
-      # متن استاندارد و همیشه مرتب برای کانال شما
-      msg = "💱 نرخ لحظه‌ای ارزها و حوالجات - صرافی ایرانیان عمان\n\n"
-      msg += (
-          "🔹 دلار آمریکا: کانال رسمی @iranianoman یا ارتباط با ادمین\n"
-      )
-      msg += "🔹 درهم امارات: استعلام آنی از طریق ادمین\n"
-      msg += "🔹 یورو: استعلام آنی از طریق ادمین\n"
-      msg += "🔹 ریال عمان: نرخ ویژه حواله و فیزیکی\n"
-      msg += "🔹 لیر ترکیه: استعلام آنی از طریق ادمین\n"
+      msg = "💱 *نرخ لحظه‌ای ارزها و حوالجات*\n"
+      msg += "📌 *صرافی ایرانیان عمان*\n\n"
 
-      msg += "\n━━━━━━━━━━━━━━━━━━━━━\n"
-      msg += "📞 ارتباط با ادمین‌ها:\n"
-      msg += "👤 @Oman_Exchangadmin1 | @OmanTejarat_Admin\n\n"
-      msg += "🌐 گروه‌ها و کانال‌های ما:\n"
-      msg += "🔹 گروه ۱: t.me/OmanIranians\n"
-      msg += "🔹 گروه ۲: t.me/Oman_ExchangeMuscat_Havaleh\n"
+      msg += "🔹 *دلار آمریکا:* استعلام آنی از ادمین\n\n"
+      msg += "🔹 *درهم امارات:* استعلام آنی از ادمین\n\n"
+      msg += "🔹 *یورو:* استعلام آنی از ادمین\n\n"
+      msg += "🔹 *ریال عمان:* نرخ ویژه حواله و فیزیکی\n\n"
+      msg += "🔹 *لیر ترکیه:* استعلام آنی از ادمین\n\n"
+
+      msg += "━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+      msg += "📞 *ارتباط با ادمین‌ها:*\n"
+      msg += "👤 @Oman_Exchangadmin1\n"
+      msg += "👤 @OmanTejarat_Admin\n\n"
+
+      msg += "🌐 *گروه‌ها و کانال‌های ما:*\n\n"
+      msg += "🔹 گروه ۱: https://t.me/OmanIranians\n\n"
+      msg += "🔹 گروه ۲: https://t.me/Oman_ExchangeMuscat_Havaleh\n\n"
       msg += (
-          "💬 گروه واتساپ:"
-          " https://chat.whatsapp.com/HOCgDM5KNaWIhDrGqO6Cif?s=cl&p=a&mlu=4&ilr=4\n"
+          "💬 گروه واتساپ: https://chat.whatsapp.com/HOCgDM5KNaWIhDrGqO6Cif\n\n"
       )
-      msg += "📢 کانال تلگرام: @iranianoman\n"
+      msg += "📢 کانال تلگرام: https://t.me/iranianoman\n\n"
       msg += "━━━━━━━━━━━━━━━━━━━━━"
 
       send_telegram_msg(msg)
