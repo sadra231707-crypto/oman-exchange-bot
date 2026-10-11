@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 TOKEN = "8893464200:AAGTqdXqZnMhYITVvtm653quvAqH5lCaOV8"
 GROUP_CHAT_ID = "-1003736738770"
 
+# بنر خوش‌آمدگویی صرافی ایرانیان عمان
+WELCOME_IMAGE_URL = (
+    "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?q=80&w=1200"
+)
+
 app = Flask(__name__)
 
 
@@ -35,58 +40,63 @@ def send_telegram_msg(text):
     print(f"Error sending telegram HTTP request: {e}")
 
 
-def fetch_target_currencies():
-  url = "https://arzbin.com/"
-  headers = {
-      "User-Agent": (
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-      )
+def send_welcome_photo(chat_id, user_name):
+  url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
+  caption = (
+      f"🌸 **خوش آمدید {user_name} عزیز!** 🌸\n\n"
+      "به مجموعه **صرافی و حواله ایرانیان عمان** خوش آمدید.\n"
+      "جهت ارتباط با ادمین‌ها و عضویت در گروه و کانال‌های ما از دکمه‌های زیر"
+      " استفاده کنید:"
+  )
+
+  # دکمه‌های شیشه‌ای (Inline Keyboard) با تمام لینک‌ها
+  inline_keyboard = {
+      "inline_keyboard": [
+          [
+              {
+                  "text": "👤 پشتیبانی اول",
+                  "url": "https://t.me/Oman_Exchangadmin1",
+              },
+              {
+                  "text": "👤 پشتیبانی دوم",
+                  "url": "https://t.me/OmanTejarat_Admin",
+              },
+          ],
+          [
+              {
+                  "text": "👥 گروه ایرانیان عمان",
+                  "url": "https://t.me/OmanIranians",
+              },
+              {
+                  "text": "👥 گروه حواله مسقط",
+                  "url": "https://t.me/Oman_ExchangeMuscat_Havaleh",
+              },
+          ],
+          [
+              {
+                  "text": "💬 گروه واتساپ صرافی",
+                  "url": (
+                      "https://chat.whatsapp.com/HOCgDM5KNaWIhDrGqO6Cif?s=cl&p=a&mlu=4&ilr=4"
+                  ),
+              }
+          ],
+          [
+              {
+                  "text": "📢 کانال رسمی صرافی",
+                  "url": "https://t.me/iranianoman",
+              }
+          ],
+      ]
   }
-  target_currencies = ["دلار", "یورو", "لیر", "ریال عمان", "درهم"]
-  prices_data = {}
+
+  payload = {
+      "chat_id": chat_id,
+      "photo": WELCOME_IMAGE_URL,
+      "caption": caption,
+      "parse_mode": "Markdown",
+      "reply_markup": inline_keyboard,
+  }
   try:
-    response = requests.get(url, headers=headers, timeout=10)
-    if response.status_code == 200:
-      soup = BeautifulSoup(response.text, "html.parser")
-      # جستجوی عمومی در تمام تگ‌ها برای پیدا کردن نام ارز و متن اطراف آن
-      for text_item in soup.stripped_strings:
-        for currency in target_currencies:
-          if currency in text_item and currency not in prices_data:
-            # سعی می‌کنیم بلوک والد یا متن خط را پیدا کنیم
-            prices_data[currency] = text_item
+    requests.post(url, json=payload, timeout=10)
   except Exception as e:
-    print(f"Error fetching prices: {e}")
-  return prices_data
-
-
-def run_telegram_worker():
-  print("=== STARTING TELEGRAM WORKER ===")
-  time.sleep(3)
-
-  while True:
-    try:
-      print("Fetching prices from Arzbin...")
-      prices = fetch_target_currencies()
-      msg = "💱 *آخرین نرخ لحظه‌ای ارزها در صرافی ایرانیان عمان*\n\n"
-      if prices:
-        for curr, val in prices.items():
-          msg += f"🔹 *{curr}*: {val}\n"
-      else:
-        msg += "🔹 نرخ‌ها در حال به‌روزرسانی هستند."
-
-      print("Sending message via Telegram API...")
-      send_telegram_msg(msg)
-      print("SUCCESS: Request sent!")
-    except Exception as e:
-      print(f"ERROR in loop: {e}")
-
-    # ارسال مجدد هر ۱ ساعت
-    time.sleep(3600)
-
-
-# شروع ارسال پیام
-threading.Thread(target=run_telegram_worker, daemon=True).start()
-
-if __name__ == "__main__":
-  port = int(os.environ.get("PORT", 10000))
-  app.run(host="0.0.0.0", port=port)
+    print(f
