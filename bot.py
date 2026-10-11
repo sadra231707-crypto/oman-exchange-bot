@@ -5,16 +5,14 @@ import time
 from bs4 import BeautifulSoup
 from flask import Flask
 import requests
-from telegram import Bot
 
 # تنظیمات لاگ
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN = "8893464200:AAGTqdXqZnMhYITVvtm653quvAqH5lCaOV8"
-GROUP_CHAT_ID = -1003736738770
+GROUP_CHAT_ID = "-1003736738770"
 
-bot = Bot(token=TOKEN)
 app = Flask(__name__)
 
 
@@ -23,12 +21,25 @@ def home():
   return "Oman Exchange Bot is Active!"
 
 
+def send_telegram_msg(text):
+  url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+  payload = {
+      "chat_id": GROUP_CHAT_ID,
+      "text": text,
+      "parse_mode": "Markdown",
+  }
+  try:
+    res = requests.post(url, json=payload, timeout=10)
+    print(f"Telegram API Response: {res.json()}")
+  except Exception as e:
+    print(f"Error sending telegram HTTP request: {e}")
+
+
 def fetch_target_currencies():
   url = "https://arzbin.com/"
   headers = {
       "User-Agent": (
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-          " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) BeautifulSoup/537.36"
       )
   }
   target_currencies = ["دلار", "یورو", "لیر", "ریال عمان", "درهم"]
@@ -50,7 +61,7 @@ def fetch_target_currencies():
 
 def run_telegram_worker():
   print("=== STARTING TELEGRAM WORKER ===")
-  time.sleep(2)  # ۲ ثانیه مکث برای استارت کامل سرور
+  time.sleep(3)
 
   while True:
     try:
@@ -63,17 +74,17 @@ def run_telegram_worker():
       else:
         msg += "🔹 سیستم استخراج قیمت فعال است."
 
-      print(f"Sending message to target ID: {GROUP_CHAT_ID}")
-      bot.send_message(chat_id=GROUP_CHAT_ID, text=msg)
-      print("SUCCESS: Message sent to Telegram channel!")
+      print("Sending message via Telegram API...")
+      send_telegram_msg(msg)
+      print("SUCCESS: Request sent!")
     except Exception as e:
-      print(f"ERROR sending message: {e}")
+      print(f"ERROR in loop: {e}")
 
-    # تکرار ارسال هر ۱ ساعت (۳۶۰۰ ثانیه)
+    # ارسال مجدد هر ۱ ساعت
     time.sleep(3600)
 
 
-# اجرا کردن بخش ارسال پیام در یک ترد جداگانه
+# شروع ارسال پیام
 threading.Thread(target=run_telegram_worker, daemon=True).start()
 
 if __name__ == "__main__":
