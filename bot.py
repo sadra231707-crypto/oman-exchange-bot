@@ -31,7 +31,6 @@ def send_telegram_msg(text):
   payload = {
       "chat_id": GROUP_CHAT_ID,
       "text": text,
-      "parse_mode": "Markdown",
   }
   try:
     res = requests.post(url, json=payload, timeout=10)
@@ -43,8 +42,8 @@ def send_telegram_msg(text):
 def send_welcome_photo(chat_id, user_name):
   url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
   caption = (
-      f"🌸 **خوش آمدید {user_name} عزیز!** 🌸\n\n"
-      "به مجموعه **صرافی و حواله ایرانیان عمان** خوش آمدید.\n"
+      f"🌸 خوش آمدید {user_name} عزیز!\n\n"
+      "به مجموعه صرافی و حواله ایرانیان عمان خوش آمدید.\n"
       "جهت ارتباط با ادمین‌ها و عضویت در گروه و کانال‌های ما از دکمه‌های زیر"
       " استفاده کنید:"
   )
@@ -92,7 +91,6 @@ def send_welcome_photo(chat_id, user_name):
       "chat_id": chat_id,
       "photo": WELCOME_IMAGE_URL,
       "caption": caption,
-      "parse_mode": "Markdown",
       "reply_markup": inline_keyboard,
   }
   try:
@@ -109,7 +107,17 @@ def fetch_target_currencies():
           " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       )
   }
-  target_currencies = ["دلار", "درهم", "یورو", "ریال عمان", "لیر"]
+  # قراردادن تمام ارزهای مورد نیاز
+  target_currencies = [
+      "دلار آمریکا",
+      "دلار",
+      "درهم امارات",
+      "درهم",
+      "یورو",
+      "ریال عمان",
+      "لیر ترکیه",
+      "لیر",
+  ]
   prices_data = {}
 
   try:
@@ -117,12 +125,18 @@ def fetch_target_currencies():
     if response.status_code == 200:
       soup = BeautifulSoup(response.text, "html.parser")
       for row in soup.find_all("tr"):
-        row_text = row.get_text(separator=" ", strip=True)
-        for key in target_currencies:
-          if key in row_text and key not in prices_data:
-            clean_text = " ".join(row_text.split())
-            if len(clean_text) < 100:
-              prices_data[key] = clean_text
+        cols = [col.get_text(strip=True) for col in row.find_all(["th", "td"])]
+        if cols:
+          row_str = " ".join(cols)
+          for key in target_currencies:
+            # کلمه‌های کلیدی اصلی را نگاشت می‌کنیم
+            clean_key = (
+                key.replace(" آمریکا", "")
+                .replace(" امارات", "")
+                .replace(" ترکیه", "")
+            )
+            if key in row_str and clean_key not in prices_data:
+              prices_data[clean_key] = row_str
   except Exception as e:
     print(f"Error fetching prices: {e}")
 
@@ -137,27 +151,29 @@ def price_broadcaster():
   while True:
     try:
       prices = fetch_target_currencies()
-      msg = "💱 *نرخ لحظه‌ای ارزها و حوالجات - صرافی ایرانیان عمان*\n\n"
+      msg = "💱 نرخ لحظه‌ای ارزها و حوالجات - صرافی ایرانیان عمان\n\n"
 
       if prices:
         for curr, val in prices.items():
-          msg += f"🔹 *{curr}*: `{val}`\n"
+          msg += f"🔹 {curr}: {val}\n"
       else:
-        msg += "🔹 دلار آمریکا: در حال به‌روزرسانی\n"
-        msg += "🔹 درهم امارات: در حال به‌روزرسانی\n"
+        msg += "🔹 دلار: در حال به‌روزرسانی\n"
+        msg += "🔹 درهم: در حال به‌روزرسانی\n"
+        msg += "🔹 یورو: در حال به‌روزرسانی\n"
         msg += "🔹 ریال عمان: در حال به‌روزرسانی\n"
+        msg += "🔹 لیر: در حال به‌روزرسانی\n"
 
       msg += "\n━━━━━━━━━━━━━━━━━━━━━\n"
-      msg += "📞 **ارتباط با ادمین‌ها:**\n"
-      msg += "👤 `@Oman_Exchangadmin1` | `@OmanTejarat_Admin`\n\n"
-      msg += "🌐 **گروه‌ها و کانال‌های ما:**\n"
+      msg += "📞 ارتباط با ادمین‌ها:\n"
+      msg += "👤 @Oman_Exchangadmin1 | @OmanTejarat_Admin\n\n"
+      msg += "🌐 گروه‌ها و کانال‌های ما:\n"
       msg += "🔹 گروه ۱: t.me/OmanIranians\n"
       msg += "🔹 گروه ۲: t.me/Oman_ExchangeMuscat_Havaleh\n"
       msg += (
           "💬 گروه واتساپ:"
           " https://chat.whatsapp.com/HOCgDM5KNaWIhDrGqO6Cif?s=cl&p=a&mlu=4&ilr=4\n"
       )
-      msg += "📢 کانال تلگرام: `@iranianoman`\n"
+      msg += "📢 کانال تلگرام: @iranianoman\n"
       msg += "━━━━━━━━━━━━━━━━━━━━━"
 
       send_telegram_msg(msg)
@@ -192,7 +208,6 @@ def telegram_updates_listener():
     time.sleep(3)
 
 
-# اجرای تردها قبل از بالا آمدن سرور Flask
 if __name__ == "__main__":
   threading.Thread(target=price_broadcaster, daemon=True).start()
   threading.Thread(target=telegram_updates_listener, daemon=True).start()
